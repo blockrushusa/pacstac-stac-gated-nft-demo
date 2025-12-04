@@ -17,6 +17,9 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      ARBITRUM_RPC_URL: https://arb1.arbitrum.io/rpc
+      ARBITRUM_SEPOLIA_RPC_URL: https://sepolia-rollup.arbitrum.io/rpc
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -30,7 +33,6 @@ jobs:
       - uses: actions/upload-pages-artifact@v3
         with:
           path: ./out
-
   deploy:
     needs: build
     runs-on: ubuntu-latest
