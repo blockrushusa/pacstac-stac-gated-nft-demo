@@ -69,6 +69,7 @@ export default function MintPage() {
   const [requiredStacAmount, setRequiredStacAmount] = useState<number>(stacConfig.requiredAmount);
   const [selectedMintMode, setSelectedMintMode] = useState<MintMode>(mintMode);
   const [simulationResult, setSimulationResult] = useState<string | null>(null);
+  const [isConfigExpanded, setIsConfigExpanded] = useState(false);
 
   const explorerBase = useMemo(
     () => getExplorerBase(selectedChain),
@@ -156,7 +157,9 @@ export default function MintPage() {
 
   const formattedBalance = useMemo(() => {
     if (!rawBalance) return "0";
-    return formatUnits(rawBalance, stacConfig.decimals);
+    const balance = formatUnits(rawBalance, stacConfig.decimals);
+    const num = Number.parseFloat(balance);
+    return num.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 4 });
   }, [rawBalance]);
 
   const formattedContractRequired = useMemo(() => {
@@ -387,30 +390,6 @@ export default function MintPage() {
   return (
     <main className="content">
       <div className="card">
-        <div className="status-row" style={{ flexWrap: "wrap" }}>
-          <span className="pill">Target: {selectedChain.name}</span>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <span className="pill">Mint mode:</span>
-            <select
-              value={selectedMintMode}
-              onChange={(e) => setSelectedMintMode(e.target.value as MintMode)}
-              style={{
-                padding: "4px 8px",
-                borderRadius: 4,
-                border: "1px solid rgba(255, 255, 255, 0.2)",
-                background: "rgba(255, 255, 255, 0.05)",
-                color: "inherit",
-                fontSize: 12,
-              }}
-            >
-              <option value="mint">mint()</option>
-              <option value="mintTo">mint(address)</option>
-              <option value="safeMint">safeMint(address)</option>
-              <option value="safeMintWithUri">safeMint(address,string)</option>
-            </select>
-          </div>
-          <span className="pill">Requires: {requiredStacAmount} STAC</span>
-        </div>
         <h1 className="headline" style={{ marginBottom: 10 }}>
           Mint the PacStac NFT
         </h1>
@@ -420,40 +399,6 @@ export default function MintPage() {
         </p>
         <div className="hero-actions">
           <ConnectButton />
-          {address && (
-            <span className="pill">
-              Connected: {address.slice(0, 6)}...{address.slice(-4)}
-            </span>
-          )}
-        </div>
-        <div className="status-row" style={{ marginTop: 12, flexWrap: "wrap" }}>
-          <span className="pill">Network toggle</span>
-          <button
-            type="button"
-            className="button ghost"
-            disabled={isSwitching}
-            style={{
-              borderColor:
-                selectedChain.id === arbitrum.id ? "rgba(122, 161, 255, 0.8)" : undefined,
-            }}
-            onClick={() => handleSelectChain(arbitrum)}
-          >
-            Arbitrum (mainnet)
-          </button>
-          <button
-            type="button"
-            className="button ghost"
-            disabled={isSwitching}
-            style={{
-              borderColor:
-                selectedChain.id === arbitrumSepolia.id
-                  ? "rgba(122, 161, 255, 0.8)"
-                  : undefined,
-            }}
-            onClick={() => handleSelectChain(arbitrumSepolia)}
-          >
-            Arbitrum Sepolia (testnet)
-          </button>
         </div>
         {isWrongNetwork && (
           <div className="status-row" style={{ marginTop: 12 }}>
@@ -467,11 +412,7 @@ export default function MintPage() {
 
       <div className="panel-grid">
         <div className="card">
-          <h3 style={{ marginTop: 0 }}>1) Verify STAC balance</h3>
-          <div className="stat">
-            <div className="stat-label">STAC contract</div>
-            <div className="muted">{stacConfig.address}</div>
-          </div>
+          <h3 style={{ marginTop: 0 }}>Verify STAC balance</h3>
           <div className="stat-grid">
             <div className="stat">
               <div className="stat-label">Required (editable)</div>
@@ -514,8 +455,8 @@ export default function MintPage() {
             </span>
             <span className="muted">
               {hasEnoughStac
-                ? "Balance meets the gate. You can submit the mint."
-                : "Hold the minimum STAC before minting."}
+                ? "Approved! No STAC will be spent. Mint fee is 0. You can mint."
+                : "Hold the minimum STAC before minting. No STAC is spent. Mint Fee is $0.00"}
             </span>
           </div>
 
@@ -533,58 +474,79 @@ export default function MintPage() {
           )}
 
           {!isLoadingContractConfig && (contractStacToken || contractRequiredBalance || contractOwner) && (
-            <div style={{ marginTop: 12, padding: 12, border: "1px solid rgba(255, 255, 255, 0.1)", borderRadius: 6 }}>
-              <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 8 }}>Contract Configuration (On-Chain)</div>
-              {contractStacToken && (
-                <div className="stat" style={{ marginBottom: 6 }}>
-                  <div className="stat-label">Contract expects STAC at</div>
-                  <div className="muted" style={{ fontSize: 11 }}>{contractStacToken}</div>
+            <div style={{ marginTop: 12, border: "1px solid rgba(255, 255, 255, 0.1)", borderRadius: 6, overflow: "hidden" }}>
+              <button
+                type="button"
+                onClick={() => setIsConfigExpanded(!isConfigExpanded)}
+                style={{
+                  width: "100%",
+                  padding: 12,
+                  background: "rgba(255, 255, 255, 0.03)",
+                  border: "none",
+                  cursor: "pointer",
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  color: "inherit",
+                  fontSize: 12,
+                  fontWeight: 600,
+                }}
+              >
+                <span>Contract Configuration (On-Chain)</span>
+                <span style={{
+                  transform: isConfigExpanded ? "rotate(180deg)" : "rotate(0deg)",
+                  transition: "transform 0.3s ease",
+                  display: "inline-block"
+                }}>
+                  ▼
+                </span>
+              </button>
+              <div style={{
+                maxHeight: isConfigExpanded ? "500px" : "0",
+                transition: "max-height 0.3s ease-in-out",
+                overflow: "hidden",
+              }}>
+                <div style={{ padding: 12 }}>
+                  <div className="stat" style={{ marginBottom: 6 }}>
+                    <div className="stat-label">Mint Price</div>
+                    <div className="muted">$0.00</div>
+                  </div>
+                  <div className="stat" style={{ marginBottom: 6 }}>
+                    <div className="stat-label">STAC contract</div>
+                    <div className="muted" style={{ fontSize: 11 }}>{stacConfig.address}</div>
+                  </div>
+                  {contractStacToken && (
+                    <div className="stat" style={{ marginBottom: 6 }}>
+                      <div className="stat-label">Contract expects STAC at</div>
+                      <div className="muted" style={{ fontSize: 11 }}>{contractStacToken}</div>
+                    </div>
+                  )}
+                  {contractRequiredBalance && (
+                    <div className="stat" style={{ marginBottom: 6 }}>
+                      <div className="stat-label">Contract requires</div>
+                      <div className="muted">{formattedContractRequired} STAC</div>
+                    </div>
+                  )}
+                  {contractOwner && (
+                    <div className="stat">
+                      <div className="stat-label">Contract owner</div>
+                      <div className="muted" style={{ fontSize: 11 }}>{contractOwner}</div>
+                    </div>
+                  )}
                 </div>
-              )}
-              {contractRequiredBalance && (
-                <div className="stat" style={{ marginBottom: 6 }}>
-                  <div className="stat-label">Contract requires</div>
-                  <div className="muted">{formattedContractRequired} STAC</div>
-                </div>
-              )}
-              {contractOwner && (
-                <div className="stat">
-                  <div className="stat-label">Contract owner</div>
-                  <div className="muted" style={{ fontSize: 11 }}>{contractOwner}</div>
-                </div>
-              )}
+              </div>
             </div>
           )}
 
-          <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-            <button
-              type="button"
-              className="button"
-              onClick={handleMint}
-              disabled={isMintDisabled}
-              style={{ flex: 1, minWidth: 200 }}
-            >
-              {mintButtonLabel}
-            </button>
-            <button
-              type="button"
-              className="button ghost"
-              onClick={handleSimulate}
-              disabled={!isConnected || !nftContractAddress}
-              style={{ minWidth: 150 }}
-            >
-              Test Transaction
-            </button>
-          </div>
-
-          {simulationResult && (
-            <div className="status-row">
-              <span className={`pill ${simulationResult.startsWith('✓') ? 'success' : 'warn'}`}>
-                Simulation
-              </span>
-              <span className="muted">{simulationResult}</span>
-            </div>
-          )}
+          <button
+            type="button"
+            className="button"
+            onClick={handleMint}
+            disabled={isMintDisabled}
+            style={{ width: "100%", marginTop: 12 }}
+          >
+            {mintButtonLabel}
+          </button>
 
           {statusMessage && (
             <div className="status-row">
@@ -621,40 +583,18 @@ export default function MintPage() {
           )}
         </div>
 
-        <div className="card">
-          <h3 style={{ marginTop: 0 }}>2) Preview the NFT</h3>
+        <div className="card" style={{ display: "flex", justifyContent: "center", alignItems: "center" }}>
           <img
             src={nftMetadata.imageUrl}
             alt="PacStac NFT"
             className="nft-visual"
+            style={{ width: "50%", maxWidth: "300px" }}
             onError={(event) => {
               const target = event.currentTarget;
               target.onerror = null;
               target.src = "/assets/pacstac-testnet-nft.png";
             }}
           />
-          <div className="stacked" style={{ marginTop: 12 }}>
-            <div className="stat">
-              <div className="stat-label">Name</div>
-              <div className="muted">{nftMetadata.name}</div>
-            </div>
-            <div className="stat">
-              <div className="stat-label">Description</div>
-              <div className="muted">{nftMetadata.description}</div>
-            </div>
-            <div className="stat">
-              <div className="stat-label">Metadata URI</div>
-              <div className="muted">
-                <code>ipfs://{nftMetadata.metadataCid}</code>
-              </div>
-            </div>
-            <div className="stat">
-              <div className="stat-label">Contract target</div>
-              <div className="muted">
-                {nftContractAddress ?? "Set NEXT_PUBLIC_NFT_CONTRACT_ADDRESS"}
-              </div>
-            </div>
-          </div>
         </div>
       </div>
     </main>
